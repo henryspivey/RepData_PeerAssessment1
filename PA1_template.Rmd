@@ -1,25 +1,76 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PA1_template"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+## Steps Analysis
 
+### Getting the code
+```{r}
+download.file('https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip','data.zip')
+unzip('data.zip')
+activity_data <- read.csv('activity.csv')
+head(activity_data)
+```
+Basic processing and summary stats
+```{r}
+activity_data$date <- as.Date(activity_data$date)
+mean(is.na(activity_data$steps))
+summary(activity_data)
+```
 
+### 1. What is mean total number of steps taken per day?
 
-## What is mean total number of steps taken per day?
+```{r}
+steps_per_day_total <- with(activity_data, aggregate(steps, by=list(date), sum))
 
+names(steps_per_day_total) <- c("date", 'steps')
+head(steps_per_day_total)
+plot(steps_per_day_total$steps ~ steps_per_day_total$date, main="Total Steps/Day", type="h", lwd=5, xlab="Date", ylab="Step Count")
 
+```
 
-## What is the average daily activity pattern?
+### 2. What is the average daily activity pattern?
 
+```{r}
+stepsInterval<-aggregate(steps~interval,data=activity_data,mean,na.rm=TRUE)
+plot(steps~interval,data=stepsInterval,type="l", main="Average Steps/Interval")
+```
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r}
+stepsInterval[which.max(stepsInterval$steps), ]
+```
 
+### 3. Imputing missing values
+```{r}
+summary(steps_per_day_total)
+NA2mean <- function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))
+imputed_data <- replace(activity_data, TRUE, lapply(activity_data, NA2mean))
+head(imputed_data)
+imputed_data_steps_per_day <- aggregate(imputed_data$steps, by=list(imputed_data$date), sum)
+names(imputed_data_steps_per_day) <- c('date', 'steps')
+head(imputed_data_steps_per_day)
+plot(imputed_data_steps_per_day$steps ~ imputed_data_steps_per_day$date, main="(Imputed) Total Steps/Day", type="h", lwd=5, xlab="Date", ylab="Step Count")
+```
 
-## Imputing missing values
+Summary statistics of imputed data
+```{r}
+summary(imputed_data_steps_per_day)
+```
 
+### 4. Are there differences in activity patterns between weekdays and weekends?
+```{r}
+library(lattice)
+weekdays1 <- c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
+#Use `%in%` and `weekdays` to create a logical vector
+#convert to `factor` and specify the `levels/labels`
+imputed_data$week_day <- factor((weekdays(imputed_data$date) %in% weekdays1), 
+                   levels=c(FALSE, TRUE), labels=c('weekend', 'weekday'))
+aggregate_by_weekday <- aggregate(steps~interval+week_day, data=imputed_data, mean)
+xyplot(steps ~ interval | week_day, data=aggregate_by_weekday, type="l")
 
-
-## Are there differences in activity patterns between weekdays and weekends?
+```
